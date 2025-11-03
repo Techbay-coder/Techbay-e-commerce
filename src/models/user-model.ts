@@ -20,7 +20,7 @@ const userSchema = new Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export const User = model("User", userSchema);
+export const User = model("/User", userSchema);
 
 
 export interface IProduct extends Document {
@@ -65,7 +65,7 @@ const cartSchema = new Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export const Cart = model("Cart", cartSchema);
+export const Cart = model("/Cart", cartSchema);
 
  interface IOrderItem extends Document {
   product: Types.ObjectId;
@@ -95,7 +95,7 @@ export const orderSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-export const Order = model<IOrder>("Order", orderSchema);
+export const Order = model<IOrder>("/Order", orderSchema);
 
 
 
