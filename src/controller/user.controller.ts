@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import { User } from "../models/user-model";
 
 interface RegisterUserBody {
@@ -7,23 +8,53 @@ interface RegisterUserBody {
   password: string;
 }
 
+interface UpdateUserBody {
+  name?: string;
+  email?: string;
+  password?: string;
+}
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const publicUser = (user: InstanceType<typeof User>) => {
+  const { password: _password, ...safeUser } = user.toObject();
+  return safeUser;
+};
+
 const createUser = async (
   req: Request<{}, {}, RegisterUserBody>,
   res: Response
 ): Promise<void> => {
-  const { name, email, password } = req.body;
+  const name = req.body.name?.trim();
+  const email = req.body.email?.trim().toLowerCase();
+  const { password } = req.body;
 
   try {
-    const user = await User.findOne({ email, name, password });
-    if (user) {
-      res.status(400).json({ message: "User already exists" });
-      return;
-    } else {
-      const newUser = new User(req.body);
-      await newUser.save();
-      res.status(201).json(newUser);
+    if (!name || !email || !password) {
+      res.status(400).json({ message: "Name, email and password are required" });
       return;
     }
+
+    if (!emailPattern.test(email)) {
+      res.status(400).json({ message: "Enter a valid email address" });
+      return;
+    }
+
+    if (password.length < 8) {
+      res.status(400).json({ message: "Password must be at least 8 characters" });
+      return;
+    }
+
+    const existingUser = await User.exists({ email });
+    if (existingUser) {
+      res.status(409).json({ message: "An account with this email already exists" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const newUser = await User.create({ name, email, password: hashedPassword });
+
+    res.status(201).json(publicUser(newUser));
   } catch (error) {
     console.error("Error registering user:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -64,13 +95,45 @@ const getUserById = async (
 export { getUserById };
 
 const updateUser = async (
-  req: Request<{ id: string }>,
+  req: Request<{ id: string }, {}, UpdateUserBody>,
   res: Response
 ): Promise<void> => {
   const { id } = req.params;
-  const updateData = req.body;
 
   try {
+    const updateData: UpdateUserBody = {};
+
+    if (req.body.name !== undefined) {
+      const name = req.body.name.trim();
+      if (!name) {
+        res.status(400).json({ message: "Name cannot be empty" });
+        return;
+      }
+      updateData.name = name;
+    }
+
+    if (req.body.email !== undefined) {
+      const email = req.body.email.trim().toLowerCase();
+      if (!emailPattern.test(email)) {
+        res.status(400).json({ message: "Enter a valid email address" });
+        return;
+      }
+      updateData.email = email;
+    }
+
+    if (req.body.password !== undefined) {
+      if (req.body.password.length < 8) {
+        res.status(400).json({ message: "Password must be at least 8 characters" });
+        return;
+      }
+      updateData.password = await bcrypt.hash(req.body.password, 12);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ message: "Provide a name, email or password to update" });
+      return;
+    }
+
     const user = await User.findByIdAndUpdate(id, updateData, { new: true });
     if (!user) {
       res.status(404).json({ message: "User not found" });

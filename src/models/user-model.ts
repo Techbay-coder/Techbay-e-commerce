@@ -1,5 +1,5 @@
 
-import { Schema, Types, model,Document } from "mongoose";
+import { Schema, Types, model, Document } from "mongoose";
 
 
 export interface IUser extends Document {
@@ -11,16 +11,21 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
-const userSchema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ["user", "admin"], default: "user" },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
+const userSchema = new Schema<IUser>(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true, minlength: 8, select: false },
+    role: {
+      type: String,
+      enum: ["user", "admin", "seller", "buyer", "expediter"],
+      default: "user",
+    },
+  },
+  { timestamps: true }
+);
 
-export const User = model("/User", userSchema);
+export const User = model<IUser>("User", userSchema);
 
 
 export interface IProduct extends Document {
@@ -65,7 +70,7 @@ const cartSchema = new Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export const Cart = model("/Cart", cartSchema);
+export const Cart = model("Cart", cartSchema);
 
  interface IOrderItem extends Document {
   product: Types.ObjectId;
@@ -95,8 +100,7 @@ export const orderSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-export const Order = model<IOrder>("/Order", orderSchema);
-
+export const Order = model<IOrder>("Order", orderSchema);
 
 
 
