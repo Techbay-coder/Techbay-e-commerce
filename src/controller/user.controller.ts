@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { User } from "../models/user-model";
 
 interface RegisterUserBody {
@@ -14,6 +15,10 @@ interface UpdateUserBody {
   password?: string;
 }
 
+interface LoginUserBody {
+  email: string;
+  password: string;
+}
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const publicUser = (user: InstanceType<typeof User>) => {
@@ -21,6 +26,22 @@ const publicUser = (user: InstanceType<typeof User>) => {
   return safeUser;
 };
 
+const createAccessToken = (user: InstanceType<typeof User>): string => {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret) {
+    throw new Error("JWT_SECRET is not defined in environment variables");
+  }
+
+  return jwt.sign(
+    { role: user.role },
+    secret,
+    {
+      subject: user.id,
+      expiresIn: "7d",
+    }
+  );
+};
 const createUser = async (
   req: Request<{}, {}, RegisterUserBody>,
   res: Response
@@ -63,6 +84,59 @@ const createUser = async (
 
 export { createUser };
 
+const loginUser = async (
+  req: Request<{}, {}, LoginUserBody>,
+  res: Response
+): Promise<void> => {
+  const email = req.body.email?.trim().toLowerCase();
+  const { password } = req.body;
+
+  try {
+    if (!email || !password) {
+      res.status(400).json({
+        message: "Email and password are required",
+      });
+      return;
+    }
+
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      res.status(401).json({
+        message: "Invalid email or password",
+      });
+      return;
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatches) {
+      res.status(401).json({
+        message: "Invalid email or password",
+      });
+      return;
+    }
+
+    const token = createAccessToken(user);
+
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user: publicUser(user),
+    });
+  } catch (error) {
+    console.error("Error logging in:", error);
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+export { loginUser };
 const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await User.find();
