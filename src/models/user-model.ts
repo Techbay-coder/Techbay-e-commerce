@@ -28,26 +28,8 @@ const userSchema = new Schema<IUser>(
 export const User = model<IUser>("User", userSchema);
 
 
-export interface IProduct extends Document {
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  stock: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-  const productsSchema = new Schema({
-    name: { type: String, required: true },
-    description: { type: String, required: true },
-    price: { type: Number, required: true },
-    category: { type: String, required: true },
-    stock: { type: Number, required: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-
-});
-export const Products = model("Product", productsSchema);
+export { Product as Products } from "./product-model";
+export type { IProduct } from "./product-model";
 
 export interface ICartItem {
   product: Types.ObjectId;
@@ -59,26 +41,28 @@ export interface ICart extends Document {
   items: ICartItem[];
   updatedAt: Date;
 }
-const cartSchema = new Schema({
-  user: { type: Types.ObjectId, ref: "User", required: true },
+const cartSchema = new Schema<ICart>({
+  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
   items: [
     {
-      product: { type: Types.ObjectId, ref: "Product", required: true },
-      quantity: { type: Number, default: 1 },
+      product: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+      quantity: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
     },
   ],
   updatedAt: { type: Date, default: Date.now },
 });
+cartSchema.index({ user: 1 }, { unique: true });
 
-export const Cart = model("Cart", cartSchema);
+export const Cart = model<ICart>("Cart", cartSchema);
 
- interface IOrderItem extends Document {
+ export interface IOrderItem extends Document {
   product: Types.ObjectId;
   quantity: Number;
+  name: string;
 
 }
 
-interface IOrder extends Document {
+  export interface IOrder extends Document {
   user: Types.ObjectId;
   items: IOrderItem[];
   totalAmount: number;
@@ -101,7 +85,6 @@ export const orderSchema = new Schema({
 });
 
 export const Order = model<IOrder>("Order", orderSchema);
-
 
 
 
